@@ -109,14 +109,12 @@ public class CdcCollectorJob2 {
                     // 解析JSON获取元数据
                     JSONObject json = JSONObject.parseObject(value);
                     JSONObject source = json.getJSONObject("source");
-
                     if (source == null) {
                         log.warn("消息缺少source字段: {}", value);
-                        return;
                     }
 
-                    // 从source中获取表名
-                    String table = source.getString("table");
+                    // 从source中获取表名（source 缺失时 table 可能为 null）
+                    String table = source == null ? null : source.getString("table");
 
                     // 提取业务ID
                     String businessKey = BusinessKeyExtractor.extractBusinessKey(table, value);
@@ -128,6 +126,9 @@ public class CdcCollectorJob2 {
 
                 } catch (Exception e) {
                     log.error("处理消息失败: {}", value, e);
+                    // 保障每个输入事件都有确定性的输出
+                    String businessKey = BusinessKeyExtractor.extractBusinessKey(null, value);
+                    out.collect(new KafkaMessage(businessKey, value));
                 }
             }
         });
