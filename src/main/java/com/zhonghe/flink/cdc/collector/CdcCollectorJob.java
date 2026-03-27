@@ -182,7 +182,16 @@ public class CdcCollectorJob {
                 .name("kafka-sink-crm-cdc")
                 .uid("kafka-sink-crm-cdc");
 
-        // 10. 执行作业
+        // 10. 发送监控日志（显式接 print sink，确保该分支会执行）
+        kafkaStream
+                .map(message -> {
+                    log.info("准备发送Kafka: key={}, size={} bytes", message.key, message.value.length());
+                    return message;
+                })
+                .name("debug-print-kafka-message")
+                .print();
+
+        // 11. 执行作业
         log.info("启动Flink作业...");
         env.execute("CRM-CDC-Collector");
     }
