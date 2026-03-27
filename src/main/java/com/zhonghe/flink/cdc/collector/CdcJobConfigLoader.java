@@ -30,15 +30,23 @@ public final class CdcJobConfigLoader {
     }
 
     public static CdcJobConfig loadConfig(String profile) {
-        String resourceName = "application-" + profile + ".yml";
-        try (InputStream in = CdcJobConfigLoader.class.getClassLoader().getResourceAsStream(resourceName)) {
+        String profileResource = "application-" + profile + ".yml";
+        try {
+            InputStream in = CdcJobConfigLoader.class.getClassLoader().getResourceAsStream(profileResource);
+            String sourceName = profileResource;
             if (in == null) {
-                throw new IllegalArgumentException("未找到配置文件: " + resourceName);
+                sourceName = "application.yml";
+                in = CdcJobConfigLoader.class.getClassLoader().getResourceAsStream(sourceName);
             }
-            Map<String, String> kv = parseSimpleYaml(in);
-            return CdcJobConfig.from(kv, resourceName);
+            if (in == null) {
+                throw new IllegalArgumentException("未找到配置文件: " + profileResource + " 或 application.yml");
+            }
+            try (InputStream closeable = in) {
+                Map<String, String> kv = parseSimpleYaml(closeable);
+                return CdcJobConfig.from(kv, sourceName);
+            }
         } catch (IOException e) {
-            throw new RuntimeException("读取配置文件失败: " + resourceName, e);
+            throw new RuntimeException("读取配置文件失败", e);
         }
     }
 

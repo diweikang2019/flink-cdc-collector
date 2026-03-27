@@ -16,6 +16,7 @@
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <env.profile>dev</env.profile>
 
         <flink.version>1.17.2</flink.version>
         <cdc.version>2.4.0</cdc.version>
@@ -101,6 +102,7 @@
     </dependencies>
 
     <build>
+        <finalName>${project.artifactId}-${project.version}-${env.profile}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -110,6 +112,28 @@
                     <source>8</source>
                     <target>8</target>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>copy-env-config-to-application-yml</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <copy file="${project.basedir}/src/main/resources/application-${env.profile}.yml"
+                                      tofile="${project.build.outputDirectory}/application.yml"
+                                      overwrite="true"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- 关键：使用 maven-shade-plugin 替代 assembly-plugin -->
@@ -151,6 +175,33 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <properties>
+                <env.profile>dev</env.profile>
+            </properties>
+        </profile>
+        <profile>
+            <id>test</id>
+            <properties>
+                <env.profile>test</env.profile>
+            </properties>
+        </profile>
+        <profile>
+            <id>uat</id>
+            <properties>
+                <env.profile>uat</env.profile>
+            </properties>
+        </profile>
+        <profile>
+            <id>online</id>
+            <properties>
+                <env.profile>online</env.profile>
+            </properties>
+        </profile>
+    </profiles>
 
 
 </project>

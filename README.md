@@ -1,1 +1,4 @@
-测试，只是为了临时保存
+mvn clean package -DskipTests -Pdev
+mvn clean package -DskipTests -Ptest
+mvn clean package -DskipTests -Puat
+mvn clean package -DskipTests -Ponline
