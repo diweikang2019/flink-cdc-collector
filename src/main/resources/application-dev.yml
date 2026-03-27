@@ -10,6 +10,7 @@ mysql:
   tables:
     - "dev_crm_db_new.crm_student"
     - "dev_crm_db_new.crm_clue_extend"
+    - "dev_crm_db_new.crm_follow"
     - "dev_crm_db_new.crm_qw_retailcode_user"
     - "dev_crm_db_new.crm_qw_friend_info"
     - "dev_crm_db_new.crm_order"
