@@ -10,6 +10,11 @@ mysql:
   tables:
     - "dev_crm_db_new.crm_student"
     - "dev_crm_db_new.crm_clue_extend"
+    - "dev_crm_db_new.crm_qw_retailcode_user"
+    - "dev_crm_db_new.crm_order"
+    - "dev_crm_db_new.crm_service_details"
+    - "dev_crm_db_new.crm_qw_groupchat"
+    - "dev_crm_db_new.crm_qw_groupchat_tag"
   server-id-range: "5400-5420"
 
 kafka:
