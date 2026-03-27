@@ -108,17 +108,23 @@ public class BusinessKeyExtractor {
                 case "crm_student":
                     businessId = "student_" + data.getString("id");
                     break;
-
                 case "crm_clue_extend":
-                    // 优先使用clue_id，如果没有则用id
-                    String clueId = data.getString("clue_id");
-                    if (clueId != null && !clueId.isEmpty()) {
-                        businessId = "clue_" + clueId;
-                    } else {
-                        businessId = "clue_" + data.getString("id");
-                    }
+                    businessId = "student_" + data.getString("clue_id");
+                case "crm_qw_retailcode_user":
+                    businessId = "qw_retailcode_user_" + data.getString("trade_no");
                     break;
-
+                case "crm_order":
+                    businessId = "order_" + data.getString("trade_no");
+                    break;
+                case "crm_service_details":
+                    businessId = "service_details_" + data.getString("id");
+                    break;
+                case "crm_qw_groupchat":
+                    businessId = "groupchat_" + data.getString("id");
+                    break;
+                case "crm_qw_groupchat_tag":
+                    businessId = "groupchat_" + data.getString("groupchat_id");
+                    break;
                 default:
                     // 默认使用id字段
                     businessId = safeTableName + "_" + data.getString("id");
