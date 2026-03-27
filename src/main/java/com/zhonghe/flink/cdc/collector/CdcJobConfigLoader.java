@@ -24,7 +24,7 @@ public final class CdcJobConfigLoader {
             profile = System.getenv("APP_PROFILE");
         }
         if (profile == null || profile.trim().isEmpty()) {
-            profile = "test";
+            profile = "dev";
         }
         return profile.trim().toLowerCase();
     }
