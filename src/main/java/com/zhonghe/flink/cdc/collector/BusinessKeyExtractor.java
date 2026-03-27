@@ -112,7 +112,10 @@ public class BusinessKeyExtractor {
                     businessId = "student_" + data.getString("clue_id");
                     break;
                 case "crm_qw_retailcode_user":
-                    businessId = "qw_retailcode_user_" + data.getString("trade_no");
+                    businessId = "qw_user_" + data.getString("id");
+                    break;
+                case "crm_qw_friend_info":
+                    businessId = "qw_friend_info_" + data.getString("id");
                     break;
                 case "crm_order":
                     businessId = "order_" + data.getString("trade_no");
