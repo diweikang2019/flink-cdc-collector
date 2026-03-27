@@ -5,9 +5,12 @@ import com.ververica.cdc.connectors.mysql.source.MySqlSource;
 import com.ververica.cdc.connectors.mysql.table.StartupOptions;
 import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema;
 import org.apache.flink.connector.kafka.sink.KafkaSink;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
@@ -56,10 +59,10 @@ public class CdcCollectorJob {
     private static final String SERVER_ID_RANGE = "5400-5420"; // 必须 >= PARALLELISM
 
     public static void main(String[] args) throws Exception {
-        System.out.println("启动CRM CDC采集作业...");
-        System.out.println("MySQL: " + MYSQL_HOST + ":" + MYSQL_PORT + ", database=" + MYSQL_DATABASE);
-        System.out.println("Kafka: " + KAFKA_BOOTSTRAP_SERVERS + ", topic=" + KAFKA_TOPIC);
-        System.out.println("并行度: " + PARALLELISM + ", server-id范围: " + SERVER_ID_RANGE);
+        log.info("启动CRM CDC采集作业...");
+        log.info("MySQL: {}:{}, database={}", MYSQL_HOST, MYSQL_PORT, MYSQL_DATABASE);
+        log.info("Kafka: {}, topic={}", KAFKA_BOOTSTRAP_SERVERS, KAFKA_TOPIC);
+        log.info("并行度: {}, server-id范围: {}", PARALLELISM, SERVER_ID_RANGE);
 
         // 1. 创建Flink执行环境
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -70,6 +73,10 @@ public class CdcCollectorJob {
         env.getCheckpointConfig().setCheckpointTimeout(600000); // 10分钟超时
         env.getCheckpointConfig().setMinPauseBetweenCheckpoints(30000); // 最小间隔30秒
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(1); // 并发数
+        env.getCheckpointConfig().setExternalizedCheckpointCleanup(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
+
+        // 1.2 重启策略：避免临时抖动直接失败退出
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(10, Time.seconds(10)));
 
         // 2 设置并行度
         env.setParallelism(PARALLELISM);
@@ -94,11 +101,11 @@ public class CdcCollectorJob {
                 "mysql-cdc-source"
         );
 
-        // 5. 打印原始数据（用于调试）
+        // 5. 原始数据打印（调试用；生产建议关闭或降频）
         cdcStream.map(json -> {
-            System.out.println("【调试】收到原始数据: " + json);
+            log.info("【调试】收到原始数据: {}", json);
             return json;
-        }).print();
+        }).name("debug-print-raw-cdc").print();
 
         // 6. 处理流：提取业务ID用于Kafka分区（但不修改数据内容）
         DataStream<KafkaMessage> kafkaStream = cdcStream.process(new ProcessFunction<String, KafkaMessage>() {
@@ -122,7 +129,7 @@ public class CdcCollectorJob {
                     // 输出到下游
                     out.collect(new KafkaMessage(businessKey, value));
 
-                    System.out.println("处理消息: key=" + businessKey + ", table=" + table);
+                    log.info("处理消息: key={}, table={}", businessKey, table);
 
                 } catch (Exception e) {
                     log.error("处理消息失败: {}", value, e);
@@ -131,7 +138,7 @@ public class CdcCollectorJob {
                     out.collect(new KafkaMessage(businessKey, value));
                 }
             }
-        });
+        }).name("extract-business-key");
 
         // 7. Kafka生产者配置（关键：保证发送顺序和Exactly-Once配置）
         Properties kafkaProps = new Properties();
@@ -144,12 +151,13 @@ public class CdcCollectorJob {
         kafkaProps.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1"); // 关键：防止重试乱序
 
         // 事务配置（必须与broker匹配）
-        kafkaProps.setProperty(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "cdc-transaction-"); // 让Flink自动管理事务ID
         kafkaProps.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG, "900000"); // 事务超时配置
 
         // 8. 创建Kafka Sink
         KafkaSink<KafkaMessage> kafkaSink = KafkaSink.<KafkaMessage>builder()
                 .setBootstrapServers(KAFKA_BOOTSTRAP_SERVERS)
+                // Flink EOS 事务前缀：让 Flink 负责为每个 subtask 生成唯一 transactionalId，避免手工配置冲突
+                .setTransactionalIdPrefix("cdc-transaction")
                 .setRecordSerializer(new KafkaRecordSerializationSchema<KafkaMessage>() {
                     @Override
                     public ProducerRecord<byte[], byte[]> serialize(
@@ -169,16 +177,13 @@ public class CdcCollectorJob {
                 .build();
 
         // 9. 添加Sink
-        kafkaStream.sinkTo(kafkaSink);
+        kafkaStream
+                .sinkTo(kafkaSink)
+                .name("kafka-sink-crm-cdc")
+                .uid("kafka-sink-crm-cdc");
 
-        // 10. 添加日志监控（可选）
-        kafkaStream.map(message -> {
-            System.out.println("📤 发送消息: key=" + message.key + ", size=" + message.value.length() + " bytes");
-            return message;
-        });
-
-        // 11. 执行作业
-        System.out.println("启动Flink作业...");
+        // 10. 执行作业
+        log.info("启动Flink作业...");
         env.execute("CRM-CDC-Collector");
     }
 
