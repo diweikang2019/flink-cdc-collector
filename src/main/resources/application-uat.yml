@@ -1,0 +1,31 @@
+profile:
+  name: "uat"
+
+mysql:
+  host: "10.0.6.111"
+  port: 3306
+  username: "aliadb"
+  password: "V8%jbQtsR&*W"
+  database: "test_crm_db"
+  tables:
+    - "test_crm_db.crm_student"
+    - "test_crm_db.crm_clue_extend"
+  server-id-range: "5400-5420"
+
+kafka:
+  bootstrap:
+    servers: "alikafka-post-cn-n1e4ounyr002-1-vpc.alikafka.aliyuncs.com:9092,alikafka-post-cn-n1e4ounyr002-2-vpc.alikafka.aliyuncs.com:9092,alikafka-post-cn-n1e4ounyr002-3-vpc.alikafka.aliyuncs.com:9092"
+  topic: "crm-cdc-events-topic-uat"
+  transaction:
+    timeout-ms: 900000
+
+flink:
+  parallelism: 1
+  checkpoint:
+    interval-ms: 60000
+    timeout-ms: 600000
+    min-pause-ms: 30000
+    max-concurrent: 1
+  restart:
+    attempts: 10
+    delay-seconds: 10
