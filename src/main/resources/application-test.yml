@@ -18,7 +18,7 @@ mysql:
     - "test_crm_db.crm_service_details"
     - "test_crm_db.crm_qw_groupchat"
     - "test_crm_db.crm_qw_groupchat_tag"
-  server-id-range: "5400-5420"
+  server-id-range: "5500-5520"
 
 kafka:
   bootstrap:
