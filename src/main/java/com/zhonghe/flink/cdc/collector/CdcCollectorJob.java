@@ -144,6 +144,7 @@ public class CdcCollectorJob {
         kafkaProps.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG, String.valueOf(config.transactionTimeoutMs));
 
         // 8. 创建Kafka Sink
+        final String kafkaTopic = config.kafkaTopic;
         KafkaSink<KafkaMessage> kafkaSink = KafkaSink.<KafkaMessage>builder()
                 .setBootstrapServers(config.kafkaBootstrapServers)
                 // Flink EOS 事务前缀：让 Flink 负责为每个 subtask 生成唯一 transactionalId，避免手工配置冲突
@@ -156,7 +157,7 @@ public class CdcCollectorJob {
                             Long timestamp) {
 
                         return new ProducerRecord<>(
-                                config.kafkaTopic,
+                                kafkaTopic,
                                 message.key.getBytes(StandardCharsets.UTF_8),      // 业务ID作为key
                                 message.value.getBytes(StandardCharsets.UTF_8)     // 原始CDC数据作为value
                         );
