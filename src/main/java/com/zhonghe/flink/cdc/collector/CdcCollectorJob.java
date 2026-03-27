@@ -1,12 +1,16 @@
 package com.zhonghe.flink.cdc.collector;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.ververica.cdc.connectors.mysql.source.MySqlSource;
 import com.ververica.cdc.connectors.mysql.table.StartupOptions;
-import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
+import com.ververica.cdc.debezium.DebeziumDeserializationSchema;
+import io.debezium.data.Envelope;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema;
 import org.apache.flink.connector.kafka.sink.KafkaSink;
@@ -17,6 +21,11 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -26,10 +35,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.Base64;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -79,7 +91,7 @@ public class CdcCollectorJob {
                 .tableList(config.mysqlTables)
                 .username(config.mysqlUsername)
                 .password(config.mysqlPassword)
-                .deserializer(new JsonDebeziumDeserializationSchema()) // 使用内置JSON反序列化器，保持原始格式
+                .deserializer(new BusinessJsonDebeziumDeserializationSchema()) // 转成下游可直接使用的业务JSON
                 .serverId(config.serverIdRange)
                 .startupOptions(StartupOptions.latest()) // 或initial()
                 .build();
@@ -168,7 +180,15 @@ public class CdcCollectorJob {
         kafkaStream
                 .map(message -> {
                     log.info("准备发送Kafka: key={}, size={} bytes", message.key, message.value.length());
-                    return message;
+                    JSONObject debugJson = new JSONObject();
+                    debugJson.put("key", message.key);
+                    try {
+                        debugJson.put("value", JSONObject.parseObject(message.value));
+                    } catch (Exception e) {
+                        // value 不是标准 JSON 时，降级为原始字符串输出
+                        debugJson.put("value", message.value);
+                    }
+                    return debugJson.toJSONString();
                 })
                 .name("debug-print-kafka-message")
                 .print();
@@ -191,13 +211,124 @@ public class CdcCollectorJob {
         }
     }
 
+    /**
+     * 将 Debezium SourceRecord 转成“下游可直接消费”的业务 JSON：
+     * - 保留 before/after/source/op/ts_ms
+     * - 提升 database/table 到顶层
+     * - Decimal 逻辑类型统一转为可读数字字符串，避免 base64 形态
+     */
+    public static class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeserializationSchema<String> {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public void deserialize(SourceRecord record, Collector<String> out) {
+            Object valueObj = record.value();
+            if (!(valueObj instanceof Struct)) {
+                out.collect(String.valueOf(valueObj));
+                return;
+            }
+
+            Struct value = (Struct) valueObj;
+            Struct source = value.getStruct("source");
+            Struct before = value.getStruct("before");
+            Struct after = value.getStruct("after");
+
+            JSONObject event = new JSONObject();
+            event.put("op", extractOperation(record, value));
+            event.put("ts_ms", value.getInt64("ts_ms"));
+            event.put("source", source == null ? null : (JSONObject) convertValue(source, source.schema()));
+            event.put("before", before == null ? null : (JSONObject) convertValue(before, before.schema()));
+            event.put("after", after == null ? null : (JSONObject) convertValue(after, after.schema()));
+
+            if (source != null) {
+                event.put("database", source.getString("db"));
+                event.put("table", source.getString("table"));
+            }
+
+            out.collect(event.toJSONString());
+        }
+
+        @Override
+        public TypeInformation<String> getProducedType() {
+            return Types.STRING;
+        }
+
+        @SuppressWarnings("unchecked")
+        private Object convertValue(Object value, Schema schema) {
+            if (value == null) {
+                return null;
+            }
+            if (schema == null) {
+                return value;
+            }
+
+            if (Decimal.LOGICAL_NAME.equals(schema.name())) {
+                BigDecimal decimal = toBigDecimal(value, schema);
+                return decimal == null ? null : decimal.toPlainString();
+            }
+
+            switch (schema.type()) {
+                case STRUCT:
+                    Struct struct = (Struct) value;
+                    JSONObject obj = new JSONObject();
+                    for (Field field : schema.fields()) {
+                        Object fieldValue = struct.get(field);
+                        obj.put(field.name(), convertValue(fieldValue, field.schema()));
+                    }
+                    return obj;
+                case ARRAY:
+                    JSONArray arr = new JSONArray();
+                    List<Object> list = (List<Object>) value;
+                    for (Object item : list) {
+                        arr.add(convertValue(item, schema.valueSchema()));
+                    }
+                    return arr;
+                case MAP:
+                    JSONObject mapObj = new JSONObject();
+                    Map<Object, Object> map = (Map<Object, Object>) value;
+                    for (Map.Entry<Object, Object> entry : map.entrySet()) {
+                        String key = String.valueOf(entry.getKey());
+                        mapObj.put(key, convertValue(entry.getValue(), schema.valueSchema()));
+                    }
+                    return mapObj;
+                case BYTES:
+                    byte[] bytes = (byte[]) value;
+                    return Base64.getEncoder().encodeToString(bytes);
+                default:
+                    return value;
+            }
+        }
+
+        private BigDecimal toBigDecimal(Object value, Schema schema) {
+            if (value == null) {
+                return null;
+            }
+            if (value instanceof BigDecimal) {
+                return (BigDecimal) value;
+            }
+            if (value instanceof byte[]) {
+                return Decimal.toLogical(schema, (byte[]) value);
+            }
+            return new BigDecimal(value.toString());
+        }
+
+        private String extractOperation(SourceRecord record, Struct value) {
+            try {
+                return Envelope.operationFor(record).code();
+            } catch (Exception e) {
+                Object op = value.get("op");
+                return op == null ? "u" : String.valueOf(op);
+            }
+        }
+    }
+
     private static String resolveProfile() {
         String profile = System.getProperty("profile");
         if (profile == null || profile.trim().isEmpty()) {
             profile = System.getenv("APP_PROFILE");
         }
         if (profile == null || profile.trim().isEmpty()) {
-            profile = "dev";
+            profile = "test";
         }
         return profile.trim().toLowerCase();
     }
