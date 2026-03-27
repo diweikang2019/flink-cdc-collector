@@ -91,7 +91,7 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- 日志 -->
+        <!-- 日志：与 log4j.properties 配套；勿用 provided，否则本地/IDE 常缺 binding，文件 appender 不生效（log4j 由本依赖传递引入） -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
