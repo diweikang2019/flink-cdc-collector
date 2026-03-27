@@ -6,10 +6,10 @@ mysql:
   port: 3306
   username: "aliadb"
   password: "V8%jbQtsR&*W"
-  database: "test_crm_db"
+  database: "dev_crm_db_new"
   tables:
-    - "test_crm_db.crm_student"
-    - "test_crm_db.crm_clue_extend"
+    - "dev_crm_db_new.crm_student"
+    - "dev_crm_db_new.crm_clue_extend"
   server-id-range: "5400-5420"
 
 kafka:

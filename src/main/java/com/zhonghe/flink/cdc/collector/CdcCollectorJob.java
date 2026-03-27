@@ -10,10 +10,10 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema;
 import org.apache.flink.connector.kafka.sink.KafkaSink;
-import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
@@ -28,9 +28,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Deque;
 import java.util.Properties;
 
 /**
@@ -149,20 +149,11 @@ public class CdcCollectorJob {
                 .setBootstrapServers(config.kafkaBootstrapServers)
                 // Flink EOS 事务前缀：让 Flink 负责为每个 subtask 生成唯一 transactionalId，避免手工配置冲突
                 .setTransactionalIdPrefix("cdc-transaction")
-                .setRecordSerializer(new KafkaRecordSerializationSchema<KafkaMessage>() {
-                    @Override
-                    public ProducerRecord<byte[], byte[]> serialize(
-                            KafkaMessage message,
-                            KafkaRecordSerializationSchema.KafkaSinkContext context,
-                            Long timestamp) {
-
-                        return new ProducerRecord<>(
-                                kafkaTopic,
-                                message.key.getBytes(StandardCharsets.UTF_8),      // 业务ID作为key
-                                message.value.getBytes(StandardCharsets.UTF_8)     // 原始CDC数据作为value
-                        );
-                    }
-                })
+                .setRecordSerializer((KafkaRecordSerializationSchema<KafkaMessage>) (message, context, timestamp) -> new ProducerRecord<>(
+                        kafkaTopic,
+                        message.key.getBytes(StandardCharsets.UTF_8),      // 业务ID作为key
+                        message.value.getBytes(StandardCharsets.UTF_8)     // 原始CDC数据作为value
+                ))
                 .setKafkaProducerConfig(kafkaProps)
                 .setDeliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                 .build();
@@ -254,8 +245,7 @@ public class CdcCollectorJob {
                     }
                     String listKey = pathStack.peek();
                     String item = stripYamlQuotes(trimmed.substring(2).trim());
-                    String oldValue = result.get(listKey);
-                    result.put(listKey, oldValue == null || oldValue.isEmpty() ? item : oldValue + "," + item);
+                    result.compute(listKey, (k, oldValue) -> oldValue == null || oldValue.isEmpty() ? item : oldValue + "," + item);
                     continue;
                 }
 
