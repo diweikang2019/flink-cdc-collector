@@ -124,7 +124,10 @@ public class BusinessKeyExtractor {
                     businessId = "order_" + data.getString("trade_no");
                     break;
                 case "crm_service_details":
-                    businessId = "service_details_" + data.getString("id");
+                    businessId = "serve_record_" + data.getString("serve_record_id");
+                    break;
+                case "serve_record":
+                    businessId = "serve_record_" + data.getString("id");
                     break;
                 case "crm_qw_groupchat":
                     businessId = "groupchat_" + data.getString("id");
