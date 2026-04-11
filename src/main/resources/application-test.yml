@@ -18,12 +18,13 @@ mysql:
     - "test_crm_db.crm_service_details"
     - "test_crm_db.crm_qw_groupchat"
     - "test_crm_db.crm_qw_groupchat_tag"
+    - "test_crm_db.crm_admin"
   server-id-range: "5500-5520"
 
 kafka:
   bootstrap:
     servers: "alikafka-post-cn-n1e4ounyr002-1-vpc.alikafka.aliyuncs.com:9092,alikafka-post-cn-n1e4ounyr002-2-vpc.alikafka.aliyuncs.com:9092,alikafka-post-cn-n1e4ounyr002-3-vpc.alikafka.aliyuncs.com:9092"
-  topic: "crm-cdc-events-topic-test"
+  topic: "crm-cdc-events-topic-test-0403"
   transaction:
     timeout-ms: 900000
 

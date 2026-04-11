@@ -18,6 +18,7 @@ mysql:
     - "dev_crm_db_new.crm_service_details"
     - "dev_crm_db_new.crm_qw_groupchat"
     - "dev_crm_db_new.crm_qw_groupchat_tag"
+    - "dev_crm_db_new.crm_admin"
   server-id-range: "5400-5420"
 
 kafka:
