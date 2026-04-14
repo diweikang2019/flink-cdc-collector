@@ -49,9 +49,9 @@ public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeseri
         JSONObject event = new JSONObject();
         event.put(FIELD_OP, extractOperation(record, value));
         event.put(FIELD_TS_MS, value.getInt64(FIELD_TS_MS));
-        event.put(FIELD_SOURCE, source == null ? null : (JSONObject) convertValue(source, source.schema()));
-        event.put(FIELD_BEFORE, before == null ? null : (JSONObject) convertValue(before, before.schema()));
-        event.put(FIELD_AFTER, after == null ? null : (JSONObject) convertValue(after, after.schema()));
+        event.put(FIELD_SOURCE, source == null ? null : convertValue(source, source.schema()));
+        event.put(FIELD_BEFORE, before == null ? null : convertValue(before, before.schema()));
+        event.put(FIELD_AFTER, after == null ? null : convertValue(after, after.schema()));
 
         if (source != null) {
             event.put("database", source.getString("db"));
