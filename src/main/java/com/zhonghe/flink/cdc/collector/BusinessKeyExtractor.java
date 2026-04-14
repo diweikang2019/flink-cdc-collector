@@ -41,7 +41,8 @@ public class BusinessKeyExtractor {
                 return "unknown-" + sha256Prefix(value);
             }
 
-            return "unknown-" + tsMs + "-" + String.valueOf(file) + "-" + String.valueOf(posObj) + "-" + String.valueOf(rowObj) + "-" + String.valueOf(op);
+            // file 本身就是 String，无需 String.valueOf；其余字段允许为 null，用 String.valueOf 保持 "null" 的确定性输出
+            return "unknown-" + tsMs + "-" + file + "-" + posObj + "-" + rowObj + "-" + op;
         } catch (Exception e) {
             return "error-" + sha256Prefix(value);
         }
