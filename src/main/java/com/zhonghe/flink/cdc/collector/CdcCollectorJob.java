@@ -88,7 +88,10 @@ public class CdcCollectorJob {
             return json;
         }).name("debug-print-raw-cdc").print();
 
-        // 6. 处理流：提取业务ID用于Kafka分区（但不修改数据内容）
+        // 6. 处理流：为每条 CDC 事件生成稳定的 Kafka key。
+        // 说明：
+        // - Kafka key 决定分区路由：同一业务实体 key 会落到同一分区，便于下游按 key 做有序处理/幂等
+        // - value 保持原始 Debezium JSON，不在这里做业务字段加工
         DataStream<KafkaMessage> kafkaStream = cdcStream.process(new ProcessFunction<String, KafkaMessage>() {
 
             @Override
@@ -101,10 +104,10 @@ public class CdcCollectorJob {
                         log.warn("消息缺少source字段: {}", value);
                     }
 
-                    // 从source中获取表名（source 缺失时 table 可能为 null）
+                    // 从 source 中获取表名（source 缺失时 table 可能为 null，此时会走 extractor 的 fallback key）
                     String table = source == null ? null : source.getString("table");
 
-                    // 提取业务ID
+                    // 提取业务 key：按表名选择业务主键/归一规则；异常时仍保证返回确定性的 key
                     String businessKey = BusinessKeyExtractor.extractBusinessKey(table, value);
 
                     // 输出到下游

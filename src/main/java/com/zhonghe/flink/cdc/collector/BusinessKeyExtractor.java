@@ -78,7 +78,12 @@ public class BusinessKeyExtractor {
     }
 
     /**
-     * 从Debezium消息中提取业务ID
+     * 从 Debezium 消息中提取“业务 Key”（用于 Kafka record key）。
+     * <p>
+     * 设计目标：
+     * - **同一业务实体的多次变更落到同一 key**：从而在 Kafka 分区内保持相对有序，便于下游按 key 聚合/去重/幂等处理
+     * - **跨表归一**：部分“明细/关联表”不使用自身主键，而是映射到所属主实体的 key（例如跟随、线索扩展归一到 student）
+     * - **容错确定性**：当解析失败或缺失 after/before 时，仍返回确定性的 fallback key，避免重启重放导致 key 漂移
      *
      * @param tableName 表名
      * @param value     Debezium消息JSON
@@ -103,15 +108,19 @@ public class BusinessKeyExtractor {
             String businessId;
             String safeTableName = (tableName == null || tableName.isEmpty()) ? "unknown_table" : tableName;
 
-            // 根据表名提取不同的主键
+            // 按表名确定 key 规则：
+            // - 主表用自身主键（例如 crm_student -> student_id）
+            // - 明细/关联表尽量映射到“所属主实体”的 key（让同一实体相关的变更聚到同一 Kafka key）
             switch (safeTableName) {
                 case "crm_student":
                     businessId = "student_" + data.getString("id");
                     break;
                 case "crm_clue_extend":
+                    // clue_extend 归一到 student（clue_id 对应学生）
                     businessId = "student_" + data.getString("clue_id");
                     break;
                 case "crm_follow":
+                    // follow 归一到 student（student_id 对应学生）
                     businessId = "student_" + data.getString("student_id");
                     break;
                 case "crm_qw_retailcode_user":
@@ -124,6 +133,7 @@ public class BusinessKeyExtractor {
                     businessId = "order_" + data.getString("trade_no");
                     break;
                 case "crm_service_details":
+                    // service_details 归一到 serve_record（serve_record_id 对应主单）
                     businessId = "serve_record_" + data.getString("serve_record_id");
                     break;
                 case "serve_record":
@@ -133,6 +143,7 @@ public class BusinessKeyExtractor {
                     businessId = "groupchat_" + data.getString("id");
                     break;
                 case "crm_qw_groupchat_tag":
+                    // groupchat_tag 归一到 groupchat（groupchat_id 对应群聊）
                     businessId = "groupchat_" + data.getString("groupchat_id");
                     break;
                 case "crm_admin":
