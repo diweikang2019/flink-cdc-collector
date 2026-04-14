@@ -26,6 +26,12 @@ import java.util.Map;
  */
 public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeserializationSchema<String> {
     private static final long serialVersionUID = 1L;
+    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
+    private static final String FIELD_SOURCE = "source";
+    private static final String FIELD_BEFORE = "before";
+    private static final String FIELD_AFTER = "after";
+    private static final String FIELD_TS_MS = "ts_ms";
+    private static final String FIELD_OP = "op";
 
     @Override
     public void deserialize(SourceRecord record, Collector<String> out) {
@@ -36,16 +42,16 @@ public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeseri
         }
 
         Struct value = (Struct) valueObj;
-        Struct source = value.getStruct("source");
-        Struct before = value.getStruct("before");
-        Struct after = value.getStruct("after");
+        Struct source = value.getStruct(FIELD_SOURCE);
+        Struct before = value.getStruct(FIELD_BEFORE);
+        Struct after = value.getStruct(FIELD_AFTER);
 
         JSONObject event = new JSONObject();
-        event.put("op", extractOperation(record, value));
-        event.put("ts_ms", value.getInt64("ts_ms"));
-        event.put("source", source == null ? null : (JSONObject) convertValue(source, source.schema()));
-        event.put("before", before == null ? null : (JSONObject) convertValue(before, before.schema()));
-        event.put("after", after == null ? null : (JSONObject) convertValue(after, after.schema()));
+        event.put(FIELD_OP, extractOperation(record, value));
+        event.put(FIELD_TS_MS, value.getInt64(FIELD_TS_MS));
+        event.put(FIELD_SOURCE, source == null ? null : (JSONObject) convertValue(source, source.schema()));
+        event.put(FIELD_BEFORE, before == null ? null : (JSONObject) convertValue(before, before.schema()));
+        event.put(FIELD_AFTER, after == null ? null : (JSONObject) convertValue(after, after.schema()));
 
         if (source != null) {
             event.put("database", source.getString("db"));
@@ -76,6 +82,9 @@ public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeseri
 
         switch (schema.type()) {
             case STRUCT:
+                if (!(value instanceof Struct)) {
+                    return value;
+                }
                 Struct struct = (Struct) value;
                 JSONObject obj = new JSONObject();
                 for (Field field : schema.fields()) {
@@ -85,6 +94,9 @@ public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeseri
                 return obj;
             case ARRAY:
                 JSONArray arr = new JSONArray();
+                if (!(value instanceof List)) {
+                    return arr;
+                }
                 List<Object> list = (List<Object>) value;
                 for (Object item : list) {
                     arr.add(convertValue(item, schema.valueSchema()));
@@ -92,6 +104,9 @@ public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeseri
                 return arr;
             case MAP:
                 JSONObject mapObj = new JSONObject();
+                if (!(value instanceof Map)) {
+                    return mapObj;
+                }
                 Map<Object, Object> map = (Map<Object, Object>) value;
                 for (Map.Entry<Object, Object> entry : map.entrySet()) {
                     String key = String.valueOf(entry.getKey());
@@ -99,11 +114,27 @@ public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeseri
                 }
                 return mapObj;
             case BYTES:
-                byte[] bytes = (byte[]) value;
-                return Base64.getEncoder().encodeToString(bytes);
+                byte[] bytes = toBytes(value);
+                return bytes == null ? null : BASE64_ENCODER.encodeToString(bytes);
             default:
                 return value;
         }
+    }
+
+    private byte[] toBytes(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof byte[]) {
+            return (byte[]) value;
+        }
+        if (value instanceof java.nio.ByteBuffer) {
+            java.nio.ByteBuffer buf = ((java.nio.ByteBuffer) value).duplicate();
+            byte[] out = new byte[buf.remaining()];
+            buf.get(out);
+            return out;
+        }
+        return null;
     }
 
     private BigDecimal toBigDecimal(Object value, Schema schema) {
@@ -116,6 +147,10 @@ public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeseri
         if (value instanceof byte[]) {
             return Decimal.toLogical(schema, (byte[]) value);
         }
+        if (value instanceof java.nio.ByteBuffer) {
+            byte[] bytes = toBytes(value);
+            return bytes == null ? null : Decimal.toLogical(schema, bytes);
+        }
         return new BigDecimal(value.toString());
     }
 
@@ -123,8 +158,8 @@ public class BusinessJsonDebeziumDeserializationSchema implements DebeziumDeseri
         try {
             return Envelope.operationFor(record).code();
         } catch (Exception e) {
-            Object op = value.get("op");
-            return op == null ? "u" : String.valueOf(op);
+            Object op = value.get(FIELD_OP);
+            return op == null ? "unknown" : String.valueOf(op);
         }
     }
 }
