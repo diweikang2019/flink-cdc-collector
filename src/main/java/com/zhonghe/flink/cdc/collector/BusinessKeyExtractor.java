@@ -108,9 +108,6 @@ public class BusinessKeyExtractor {
                 case "crm_student":
                     businessId = "student_" + data.getString("id");
                     break;
-                case "crm_admin":
-                    businessId = "admin_" + data.getString("id");
-                    break;
                 case "crm_clue_extend":
                     businessId = "student_" + data.getString("clue_id");
                     break;
@@ -138,6 +135,9 @@ public class BusinessKeyExtractor {
                 case "crm_qw_groupchat_tag":
                     businessId = "groupchat_" + data.getString("groupchat_id");
                     break;
+                case "crm_admin":
+                    businessId = "admin_" + data.getString("id");
+                    break;
                 default:
                     // 默认使用id字段
                     businessId = safeTableName + "_" + data.getString("id");
@@ -150,19 +150,5 @@ public class BusinessKeyExtractor {
             log.error("提取业务ID失败: table={}, value={}", tableName, value, e);
             return "error-" + sha256Prefix(value);
         }
-    }
-
-    /**
-     * 从SourceRecord中获取表名
-     *
-     * @param topic topic名称 (格式: mysql_binlog_source.database.table)
-     * @return 表名
-     */
-    public static String extractTableName(String topic) {
-        String[] parts = topic.split("\\.");
-        if (parts.length >= 3) {
-            return parts[2];  // mysql_binlog_source.test_crm_db.crm_student -> crm_student
-        }
-        return "unknown";
     }
 }
