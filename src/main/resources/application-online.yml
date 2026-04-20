@@ -13,6 +13,7 @@ mysql:
     - "test_crm_db.crm_follow"
     - "test_crm_db.crm_qw_retailcode_user"
     - "test_crm_db.crm_qw_friend_info"
+    - "test_crm_db.crm_qw_friend_mobiles"
     - "test_crm_db.crm_order"
     - "test_crm_db.serve_record"
     - "test_crm_db.crm_service_details"

@@ -130,6 +130,9 @@ public class BusinessKeyExtractor {
                 case "crm_qw_friend_info":
                     businessId = "qw_friend_info_" + data.getString("id");
                     break;
+                case "crm_qw_friend_mobiles":
+                    businessId = "qw_friend_info_" + data.getString("qw_friend_info_id");
+                    break;
                 case "crm_order":
                     businessId = "order_" + data.getString("trade_no");
                     break;

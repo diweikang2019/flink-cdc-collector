@@ -13,6 +13,7 @@ mysql:
     - "uat_crm_db.crm_follow"
     - "uat_crm_db.crm_qw_retailcode_user"
     - "uat_crm_db.crm_qw_friend_info"
+    - "uat_crm_db.crm_qw_friend_mobiles"
     - "uat_crm_db.crm_order"
     - "uat_crm_db.serve_record"
     - "uat_crm_db.crm_service_details"
