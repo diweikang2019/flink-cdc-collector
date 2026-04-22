@@ -25,7 +25,7 @@ mysql:
 kafka:
   bootstrap:
     servers: "alikafka-post-cn-n1e4ounyr002-1-vpc.alikafka.aliyuncs.com:9092,alikafka-post-cn-n1e4ounyr002-2-vpc.alikafka.aliyuncs.com:9092,alikafka-post-cn-n1e4ounyr002-3-vpc.alikafka.aliyuncs.com:9092"
-  topic: "crm-cdc-events-topic-test-0403"
+  topic: "crm-cdc-events-topic-test"
   transaction:
     timeout-ms: 900000
 
