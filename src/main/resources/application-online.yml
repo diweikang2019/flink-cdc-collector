@@ -2,29 +2,29 @@ profile:
   name: "online"
 
 mysql:
-  host: "10.0.6.111"
+  host: "10.0.6.215"
   port: 3306
   username: "aliadb"
-  password: "V8%jbQtsR&*W"
-  database: "test_crm_db"
+  password: "AliAdb1q!zaqxsw"
+  database: "online_crm_db"
   tables:
-    - "test_crm_db.crm_student"
-    - "test_crm_db.crm_clue_extend"
-    - "test_crm_db.crm_follow"
-    - "test_crm_db.crm_qw_retailcode_user"
-    - "test_crm_db.crm_qw_friend_info"
-    - "test_crm_db.crm_qw_friend_mobiles"
-    - "test_crm_db.crm_order"
-    - "test_crm_db.serve_record"
-    - "test_crm_db.crm_service_details"
-    - "test_crm_db.crm_qw_groupchat"
-    - "test_crm_db.crm_qw_groupchat_tag"
-    - "test_crm_db.crm_admin"
+    - "online_crm_db.crm_student"
+    - "online_crm_db.crm_clue_extend"
+    - "online_crm_db.crm_follow"
+    - "online_crm_db.crm_qw_retailcode_user"
+    - "online_crm_db.crm_qw_friend_info"
+    - "online_crm_db.crm_qw_friend_mobiles"
+    - "online_crm_db.crm_order"
+    - "online_crm_db.serve_record"
+    - "online_crm_db.crm_service_details"
+    - "online_crm_db.crm_qw_groupchat"
+    - "online_crm_db.crm_qw_groupchat_tag"
+    - "online_crm_db.crm_admin"
   server-id-range: "5700-5720"
 
 kafka:
   bootstrap:
-    servers: "alikafka-post-cn-n1e4ounyr002-1-vpc.alikafka.aliyuncs.com:9092,alikafka-post-cn-n1e4ounyr002-2-vpc.alikafka.aliyuncs.com:9092,alikafka-post-cn-n1e4ounyr002-3-vpc.alikafka.aliyuncs.com:9092"
+    servers: "alikafka-pre-cn-cq74s3ce2001-1-vpc.alikafka.aliyuncs.com:9092,alikafka-pre-cn-cq74s3ce2001-2-vpc.alikafka.aliyuncs.com:9092,alikafka-pre-cn-cq74s3ce2001-3-vpc.alikafka.aliyuncs.com:9092"
   topic: "crm-cdc-events-topic-online"
   transaction:
     timeout-ms: 900000
